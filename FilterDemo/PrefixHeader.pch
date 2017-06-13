@@ -1,0 +1,19 @@
+//
+//  PrefixHeader.pch
+//  FilterDemo
+//
+//  Created by wpsd on 2017/5/27.
+//  Copyright © 2017年 wpsd. All rights reserved.
+//
+
+#ifndef PrefixHeader_pch
+#define PrefixHeader_pch
+
+#import "GPUImage.h"
+
+#define SCREEN_WIDTH UIScreen.mainScreen.bounds.size.width
+#define SCREEN_HEIGHT UIScreen.mainScreen.bounds.size.height
+
+#define pathToMovie [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Movie.m4v"]
+
+#endif /* PrefixHeader_pch */
