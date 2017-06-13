@@ -10,6 +10,6 @@
 
 @interface PreviewController : UIViewController
 
-@property (strong, nonatomic) NSURL *movieURL;
+@property (assign, nonatomic) NSInteger videoCount;
 
 @end

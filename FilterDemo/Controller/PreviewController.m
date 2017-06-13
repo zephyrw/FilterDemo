@@ -12,12 +12,15 @@
 #define SCREEN_WIDTH UIScreen.mainScreen.bounds.size.width
 #define SCREEN_HEIGHT UIScreen.mainScreen.bounds.size.height
 
-@interface PreviewController ()
+@interface PreviewController ()<GPUImageMovieDelegate>
 
 @property (strong, nonatomic) GPUImageMovie *movieFile;
 @property (strong, nonatomic) GPUImageView *videoView;
 @property (strong, nonatomic) AVPlayer *player;
-@property (strong, nonatomic) AVPlayerItem *playItem;
+@property (strong, nonatomic) AVPlayerItem *playerItem;
+@property (strong, nonatomic) NSURL *movieURL;
+
+@property (assign, nonatomic) NSInteger currentVideoIndex;
 
 @end
 
@@ -29,10 +32,33 @@
     self.view.backgroundColor = [UIColor whiteColor];
     
     self.videoView = [[GPUImageView alloc] initWithFrame:CGRectMake(0.0, 0.0, SCREEN_WIDTH, SCREEN_HEIGHT)];
-    self.videoView.center = self.view.center;
     [self.view addSubview:self.videoView];
     
+    self.currentVideoIndex = 1;
     [self setupVideo];
+    [self setupUI];
+    
+}
+
+- (void)setupVideo {
+    
+    self.movieURL = [NSURL fileURLWithPath:pathToMovie(self.currentVideoIndex)];
+    
+    self.playerItem = [AVPlayerItem playerItemWithURL:self.movieURL];
+    self.player = [AVPlayer playerWithPlayerItem:self.playerItem];
+    self.movieFile = [[GPUImageMovie alloc] initWithPlayerItem:self.playerItem];
+    self.movieFile.delegate = self;
+    
+    self.movieFile.runBenchmark = YES;
+    self.movieFile.playAtActualSpeed = YES;
+    [self.movieFile addTarget:self.videoView];
+    [self.movieFile startProcessing];
+    
+    self.player.rate = 1.0;
+    
+}
+
+- (void)setupUI {
     
     UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     [backBtn setTitle:@"返回" forState:UIControlStateNormal];
@@ -60,25 +86,10 @@
     
 }
 
-- (void)setupVideo {
-    
-    self.playItem = [AVPlayerItem playerItemWithURL:self.movieURL];
-    self.player = [AVPlayer playerWithPlayerItem:self.playItem];
-    self.movieFile = [[GPUImageMovie alloc] initWithPlayerItem:self.playItem];
-    
-    self.movieFile.runBenchmark = YES;
-    self.movieFile.playAtActualSpeed = YES;
-    [self.movieFile addTarget:self.videoView];
-    [self.movieFile startProcessing];
-    
-    self.player.rate = 1.0;
-    
-}
-
 - (void)saveToAlbumBtnClick:(UIButton *)sender {
     
     ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
-    if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(pathToMovie)) {
+    if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(pathToMovie((long)1))) {
         [library writeVideoAtPathToSavedPhotosAlbum:self.movieURL completionBlock:^(NSURL *assetURL, NSError *error) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (error) {
@@ -99,6 +110,7 @@
 
 - (void)replayBtnClick:(UIButton *)sender {
     
+    self.currentVideoIndex = 1;
     [self.movieFile endProcessing];
     [self setupVideo];
     
@@ -107,6 +119,23 @@
 - (void)backBtnClick:(UIButton *)sender {
     
     [self dismissViewControllerAnimated:YES completion:nil];
+    
+}
+
+#pragma mark - GPUImageMovieDelegate
+
+- (void)didCompletePlayingMovie {
+    
+    if (self.currentVideoIndex++ <= self.videoCount) {
+        [self.movieFile endProcessing];
+        [self.movieFile removeAllTargets];
+        self.movieFile = nil;
+        self.player = nil;
+        self.playerItem = nil;
+        [self setupVideo];
+    }else {
+        self.currentVideoIndex = 1;
+    }
     
 }
 

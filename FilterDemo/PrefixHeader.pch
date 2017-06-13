@@ -14,6 +14,6 @@
 #define SCREEN_WIDTH UIScreen.mainScreen.bounds.size.width
 #define SCREEN_HEIGHT UIScreen.mainScreen.bounds.size.height
 
-#define pathToMovie [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Movie.m4v"]
+#define pathToMovie(num) [[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Movie"] stringByAppendingString:[NSString stringWithFormat:@"%ld.m4v",num]]
 
 #endif /* PrefixHeader_pch */

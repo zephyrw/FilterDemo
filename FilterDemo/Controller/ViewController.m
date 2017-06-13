@@ -42,7 +42,6 @@ typedef NS_ENUM(NSInteger, RecordType){
 @property (nonatomic, strong) UIButton *beautifyButton;
 @property (strong, nonatomic) UICollectionView *collectionView;
 @property (strong, nonatomic) NSMutableArray<FilterModel *> *filters;
-
 @property (nonatomic , strong) GPUImageMovieWriter *movieWriter;
 @property (nonatomic , strong) GPUImageUIElement *faceView;
 @property (nonatomic , strong) GPUImageAddBlendFilter *blendFilter;
@@ -56,15 +55,13 @@ typedef NS_ENUM(NSInteger, RecordType){
  */
 @property (nonatomic) CMMotionManager *motionManager;
 @property (nonatomic) UIInterfaceOrientation interfaceOrientation;
-
 @property (strong, nonatomic) NSURL *movieURL;
 @property (assign, nonatomic) BOOL isRecording;
-@property (strong, nonatomic) UIActivityIndicatorView *indicator;
-
 @property (strong, nonatomic) AVAudioPlayer *audioPlayer;
 @property (strong, nonatomic) UIButton *startRecordBtn;
-
 @property (assign, nonatomic) NSInteger videoCount;
+@property (strong, nonatomic) UIProgressView *progressView;
+@property (strong, nonatomic) CADisplayLink *link;
 
 @end
 
@@ -78,8 +75,8 @@ static NSString *cellID = @"CellID";
     [self setupFaceDetector];
     [self setupFilters];
     [self setupMovieWriter];
-    [self setupAudioPlayer];
     [self setupResponseChain];
+    [self setupAudioPlayer];
     [self setupUI];
     
 }
@@ -94,7 +91,7 @@ static NSString *cellID = @"CellID";
 - (void)setupFaceDetector {
     
     // 人脸识别
-    self.viewCanvas = [[CanvasView alloc] initWithFrame:CGRectMake(0.0, 0.0, SCREEN_WIDTH, SCREEN_WIDTH * 4 / 3)];
+    self.viewCanvas = [[CanvasView alloc] initWithFrame:self.view.bounds];
     self.viewCanvas.backgroundColor = [UIColor clearColor];
     self.viewCanvas.headMap = [UIImage imageNamed:@"Crown"];
     self.faceDetector = [IFlyFaceDetector sharedInstance];
@@ -113,8 +110,7 @@ static NSString *cellID = @"CellID";
     self.videoCamera.delegate = self;
     self.videoCamera.outputImageOrientation = UIInterfaceOrientationPortrait;
     self.videoCamera.horizontallyMirrorFrontFacingCamera = YES;
-    self.filterView = [[GPUImageView alloc] initWithFrame:self.viewCanvas.bounds];
-    self.filterView.center = self.view.center;
+    self.filterView = [[GPUImageView alloc] initWithFrame:self.view.frame];
     [self.view addSubview:self.filterView];
     
     self.beautifulFilter = [GPUImageBeautifyFilter new];
@@ -129,9 +125,13 @@ static NSString *cellID = @"CellID";
 
 - (void)setupMovieWriter {
     
+    if (self.movieWriter) {
+        self.movieWriter = nil;
+    }
+    
     // 录像文件
-    unlink([pathToMovie UTF8String]);
-    self.movieURL = [NSURL fileURLWithPath:pathToMovie];
+    unlink([pathToMovie(self.videoCount) UTF8String]);
+    self.movieURL = [NSURL fileURLWithPath:pathToMovie(self.videoCount)];
     
     // 配置录制信息
     _movieWriter = [[GPUImageMovieWriter alloc] initWithMovieURL:self.movieURL size:CGSizeMake(480, 640)];
@@ -142,8 +142,19 @@ static NSString *cellID = @"CellID";
 
 - (void)setupResponseChain {
     
-    [self.filterGroup removeAllTargets];
-    [self.videoCamera removeAllTargets];
+    if (self.videoCamera.targets.count) {
+        [self.videoCamera removeAllTargets];
+    }
+    if (self.filterGroup.targets.count) {
+        [self.filterGroup removeAllTargets];
+    }
+    if (self.faceView.targets.count) {
+        [self.faceView removeAllTargets];
+    }
+    if (self.blendFilter.targets.count) {
+        [self.blendFilter removeAllTargets];
+    }
+    
     [self.videoCamera addTarget:self.filterGroup];
     [self.filterGroup addTarget:self.blendFilter];
     [self.faceView addTarget:self.blendFilter];
@@ -168,10 +179,24 @@ static NSString *cellID = @"CellID";
     
 }
 
+- (void)setupAudioPlayer {
+    
+    NSString *path = [[NSBundle mainBundle] pathForResource:@"ywcm" ofType:@"mp3"];
+    NSError *error = nil;
+    self.audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:[NSURL URLWithString:path] error:&error];
+    if (error) {
+        NSLog(@"音频播放器初始化错误");
+        return;
+    }
+    self.audioPlayer.delegate = self;
+    [self.audioPlayer addObserver:self forKeyPath:@"currentTime" options:NSKeyValueObservingOptionNew context:nil];
+    [self.audioPlayer prepareToPlay];
+    
+}
+
 - (void)setupUI {
     
     self.filters = [FilterModel filters];
-    [self.view addSubview:self.collectionView];
     [self.view addSubview:self.viewCanvas];
     
     UIButton *coverBtn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -181,6 +206,7 @@ static NSString *cellID = @"CellID";
     [self.view addSubview:coverBtn];
     
     UIButton *startRecordBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.startRecordBtn = startRecordBtn;
     [startRecordBtn setTitle:@"开始录制" forState:UIControlStateNormal];
     [startRecordBtn setTitleColor:[UIColor orangeColor] forState:UIControlStateNormal];
     [startRecordBtn sizeToFit];
@@ -201,32 +227,26 @@ static NSString *cellID = @"CellID";
     [finishRecordBtn setTitleColor:[UIColor orangeColor] forState:UIControlStateNormal];
     [finishRecordBtn sizeToFit];
     finishRecordBtn.frame = CGRectMake(250, 30, finishRecordBtn.frame.size.width, finishRecordBtn.frame.size.height);
-    [finishRecordBtn addTarget:self action:@selector(finishRecordBtnClick:) forControlEvents:UIControlEventTouchUpInside];
+    [finishRecordBtn addTarget:self action:@selector(finishRecordBtnClick) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:finishRecordBtn];
-    
-    UIActivityIndicatorView *indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-    indicator.center = self.view.center;
-    self.indicator = indicator;
-    [self.view addSubview:indicator];
     
     UIProgressView *progressView = [[UIProgressView alloc] initWithFrame:CGRectMake(0, 0, SCREEN_WIDTH, 2)];
     progressView.progressTintColor = [UIColor orangeColor];
     progressView.trackTintColor = [UIColor grayColor];
     [self.view addSubview:progressView];
+    self.progressView = progressView;
+    
+    [self.view addSubview:self.collectionView];
+    
+    CADisplayLink *link = [CADisplayLink displayLinkWithTarget:self selector:@selector(audioProcess)];
+    [link addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+    self.link = link;
     
 }
 
-- (void)setupAudioPlayer {
+- (void)audioProcess {
     
-    NSString *path = [[NSBundle mainBundle] pathForResource:@"ywcm" ofType:@"mp3"];
-    NSError *error = nil;
-    self.audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:[NSURL URLWithString:path] error:&error];
-    if (error) {
-        NSLog(@"音频播放器初始化错误");
-        return;
-    }
-    self.audioPlayer.delegate = self;
-    [self.audioPlayer prepareToPlay];
+    self.progressView.progress = self.audioPlayer.currentTime / self.audioPlayer.duration;
     
 }
 
@@ -245,10 +265,11 @@ static NSString *cellID = @"CellID";
         ++self.videoCount;
         [sender setTitle:@"暂停录制" forState:UIControlStateNormal];
         NSLog(@"start record button click");
+        [self setupMovieWriter];
+        [self.videoCamera startCameraCapture];
         [self setupResponseChain];
         [self.movieWriter startRecording];
         [self.audioPlayer play];
-        [self.videoCamera startCameraCapture];
         // 结束回调
         __weak typeof (self) weakSelf = self;
         [self.filterGroup setFrameProcessingCompletionBlock:^(GPUImageOutput *output, CMTime time) {
@@ -263,53 +284,27 @@ static NSString *cellID = @"CellID";
         [sender setTitle:@"继续录制" forState:UIControlStateNormal];
         NSLog(@"stop record button click");
         [self.audioPlayer pause];
-        [self.videoCamera stopCameraCapture];
         [self.blendFilter removeTarget:_movieWriter];
         [self.movieWriter finishRecording];
-        [self setupResponseChain];
-        [self setupMovieWriter];
         self.filterGroup.frameProcessingCompletionBlock = nil;
+//        [self.videoCamera stopCameraCapture];
         
     }
 }
 
-- (void)finishRecordBtnClick:(UIButton *)sender {
+- (void)finishRecordBtnClick {
     
     [self.blendFilter removeTarget:_movieWriter];
     [self.audioPlayer stop];
     [self.audioPlayer prepareToPlay];
     [_movieWriter finishRecording];
-    PreviewController *previewVC = [PreviewController new];
-    previewVC.movieURL = self.movieURL;
-    [self.videoCamera stopCameraCapture];
     [self.startRecordBtn setTitle:@"开始录制" forState:UIControlStateNormal];
+    [self.videoCamera stopCameraCapture];
+    
+    PreviewController *previewVC = [PreviewController new];
+    previewVC.videoCount = self.videoCount;
     self.isRecording = NO;
     [self presentViewController:previewVC animated:YES completion:nil];
-    
-}
-
-- (void)saveToAlbum {
-    
-    NSString *path = [pathToMovie stringByAppendingString:[NSString stringWithFormat:@"%ld",self.videoCount]];
-    unlink([path UTF8String]);
-    self.movieURL = [NSURL URLWithString:path];
-    ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
-    if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(path)) {
-        [library writeVideoAtPathToSavedPhotosAlbum:self.movieURL completionBlock:^(NSURL *assetURL, NSError *error) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (error) {
-                    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"视频保存失败" message:nil delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
-                    [alert show];
-                } else {
-                    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"保存到相册成功" message:nil delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
-                    [alert show];
-                }
-            });
-        }];
-        
-    } else {
-        NSLog(@"error msg)");
-    }
     
 }
 
@@ -354,16 +349,22 @@ static NSString *cellID = @"CellID";
     
 }
 
--(void) willOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer {
-    IFlyFaceImage *faceImg=[self faceImageFromSampleBuffer:sampleBuffer];
+#pragma mark - GPUImageVideoCameraDelegate
+
+- (void) willOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer {
+    
+    IFlyFaceImage *faceImg = [self faceImageFromSampleBuffer:sampleBuffer];
     //识别结果，json数据
-    NSString* strResult=[self.faceDetector trackFrame:faceImg.data withWidth:faceImg.width height:faceImg.height direction:(int)faceImg.direction];
+    NSString *strResult = [self.faceDetector trackFrame:faceImg.data withWidth:faceImg.width height:faceImg.height direction:(int)faceImg.direction];
     
     [self praseTrackResult:strResult OrignImage:faceImg];
     //此处清理图片数据，以防止因为不必要的图片数据的反复传递造成的内存卷积占用
-    faceImg.data=nil;
-    faceImg=nil;
+    faceImg.data = nil;
+    faceImg = nil;
+    
 }
+
+#pragma mark - 人脸识别
 
 /*
  人脸识别,储存人脸各点坐标
@@ -487,9 +488,6 @@ static NSString *cellID = @"CellID";
     
 }
 
-
-
-#pragma mark - 人脸识别相关方法
 //检测到人脸
 - (void) showFaceLandmarksAndFaceRectWithPersonsArray:(NSMutableArray *)arrPersons{
     if (self.viewCanvas.hidden) {
@@ -670,7 +668,7 @@ static NSString *cellID = @"CellID";
     
     if (flag) {
         NSLog(@"录制完成");
-        [self startRecordBtnClick:self.startRecordBtn];
+        [self finishRecordBtnClick];
     }
     
 }
@@ -682,7 +680,7 @@ static NSString *cellID = @"CellID";
         UICollectionViewFlowLayout *layout = [UICollectionViewFlowLayout new];
         layout.minimumInteritemSpacing = 5;
         layout.scrollDirection = UICollectionViewScrollDirectionHorizontal;
-        CGFloat collectionH = (SCREEN_HEIGHT - self.filterView.frame.size.height) / 2;
+        CGFloat collectionH = (SCREEN_HEIGHT - SCREEN_WIDTH * 4 / 3) / 2;
         CGFloat itemWH = collectionH - 10;
         layout.itemSize = CGSizeMake(itemWH, itemWH);
         layout.sectionInset = UIEdgeInsetsMake(5, 5, 5, 5);
