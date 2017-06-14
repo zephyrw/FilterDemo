@@ -62,6 +62,7 @@ typedef NS_ENUM(NSInteger, RecordType){
 @property (assign, nonatomic) NSInteger videoCount;
 @property (strong, nonatomic) UIProgressView *progressView;
 @property (strong, nonatomic) CADisplayLink *link;
+@property (strong, nonatomic) UIView *focusView;
 
 @end
 
@@ -99,6 +100,7 @@ static NSString *cellID = @"CellID";
         [self.faceDetector setParameter:@"1" forKey:@"detect"];
         [self.faceDetector setParameter:@"1" forKey:@"align"];
     }
+    [self updateCM];
     
 }
 
@@ -163,7 +165,6 @@ static NSString *cellID = @"CellID";
     
 }
 
-
 - (void)addGPUImageFilter:(GPUImageOutput<GPUImageInput> *)filter {
     
     [self.filterGroup addFilter:filter];
@@ -196,14 +197,13 @@ static NSString *cellID = @"CellID";
 
 - (void)setupUI {
     
-    self.filters = [FilterModel filters];
     [self.view addSubview:self.viewCanvas];
     
-    UIButton *coverBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    coverBtn.frame = self.filterView.frame;
-    [coverBtn addTarget:self action:@selector(coverBtnTouchDown:) forControlEvents:UIControlEventTouchDown];
-    [coverBtn addTarget:self action:@selector(coverBtnTouchUpInside:) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:coverBtn];
+//    UIButton *coverBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+//    coverBtn.frame = self.filterView.frame;
+//    [coverBtn addTarget:self action:@selector(coverBtnTouchDown:) forControlEvents:UIControlEventTouchDown];
+//    [coverBtn addTarget:self action:@selector(coverBtnTouchUpInside:) forControlEvents:UIControlEventTouchUpInside];
+//    [self.view addSubview:coverBtn];
     
     UIButton *startRecordBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.startRecordBtn = startRecordBtn;
@@ -236,7 +236,9 @@ static NSString *cellID = @"CellID";
     [self.view addSubview:progressView];
     self.progressView = progressView;
     
+    self.filters = [FilterModel filters];
     [self.view addSubview:self.collectionView];
+    [self.view addSubview:self.focusView];
     
     CADisplayLink *link = [CADisplayLink displayLinkWithTarget:self selector:@selector(audioProcess)];
     [link addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
@@ -245,8 +247,39 @@ static NSString *cellID = @"CellID";
 }
 
 - (void)audioProcess {
-    
     self.progressView.progress = self.audioPlayer.currentTime / self.audioPlayer.duration;
+}
+
+#pragma mark - 调整焦点
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    
+    CGPoint loc = [[touches anyObject] locationInView:self.view];
+    CGPoint cameraLoc = CGPointMake(loc.x / SCREEN_WIDTH, loc.y / SCREEN_HEIGHT);
+    NSLog(@"loc: %@", NSStringFromCGPoint(loc));
+    NSLog(@"cameraLoc: %@", NSStringFromCGPoint(cameraLoc));
+    if ([self.videoCamera.inputCamera isFocusPointOfInterestSupported] && [self.videoCamera.inputCamera isLockingFocusWithCustomLensPositionSupported]) {
+        NSError *error = nil;
+        [self.videoCamera.inputCamera lockForConfiguration:&error];
+        if (error) {
+            NSLog(@"无法设置摄像头：%@", error);
+        }
+        [self.videoCamera.inputCamera setFocusPointOfInterest:cameraLoc];
+        [self.videoCamera.inputCamera setFocusMode:AVCaptureFocusModeAutoFocus];
+        [self.videoCamera.inputCamera unlockForConfiguration];
+        
+        self.focusView.center = loc;
+        self.focusView.alpha = 1;
+        
+        self.focusView.transform = CGAffineTransformMakeScale(1.5, 1.5);
+        [UIView animateWithDuration:0.3 animations:^{
+                self.focusView.transform = CGAffineTransformIdentity;
+        } completion:^(BOOL finished) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                self.focusView.alpha = 0.5;
+            });
+        }];
+    }
     
 }
 
@@ -263,6 +296,7 @@ static NSString *cellID = @"CellID";
     self.isRecording = !self.isRecording;
     if (self.isRecording) { // 开始录制
         ++self.videoCount;
+        NSLog(@"---------------------------current count: %ld ----------------------------------------", self.videoCount);
         [sender setTitle:@"暂停录制" forState:UIControlStateNormal];
         NSLog(@"start record button click");
         [self setupMovieWriter];
@@ -608,7 +642,6 @@ static NSString *cellID = @"CellID";
                                              }];
 }
 
-
 #pragma mark  - 判断当前设备的方向
 - (void)updateAccelertionData:(CMAcceleration)acceleration{
     UIInterfaceOrientation orientationNew;
@@ -638,7 +671,7 @@ static NSString *cellID = @"CellID";
 
 #pragma mark - 判断视频帧方向
 - (IFlyFaceDirectionType)faceImageOrientation {
-    IFlyFaceDirectionType faceOrientation=IFlyFaceDirectionTypeLeft;
+    IFlyFaceDirectionType faceOrientation = IFlyFaceDirectionTypeLeft;
     BOOL isFrontCamera = self.videoCamera.cameraPosition == AVCaptureDevicePositionFront;
     switch (self.interfaceOrientation) {
         case UIDeviceOrientationPortrait:{//
@@ -646,15 +679,15 @@ static NSString *cellID = @"CellID";
         }
             break;
         case UIDeviceOrientationPortraitUpsideDown:{
-            faceOrientation=IFlyFaceDirectionTypeRight;
+            faceOrientation = IFlyFaceDirectionTypeRight;
         }
             break;
         case UIDeviceOrientationLandscapeRight:{
-            faceOrientation=isFrontCamera?IFlyFaceDirectionTypeUp:IFlyFaceDirectionTypeDown;
+            faceOrientation = isFrontCamera ? IFlyFaceDirectionTypeUp : IFlyFaceDirectionTypeDown;
         }
             break;
         default:{//
-            faceOrientation=isFrontCamera?IFlyFaceDirectionTypeDown:IFlyFaceDirectionTypeUp;
+            faceOrientation = isFrontCamera ? IFlyFaceDirectionTypeDown : IFlyFaceDirectionTypeUp;
         }
             break;
     }
@@ -691,6 +724,18 @@ static NSString *cellID = @"CellID";
         [_collectionView registerClass:[FilterCell class] forCellWithReuseIdentifier:cellID];
     }
     return _collectionView;
+}
+
+- (UIView *)focusView {
+    
+    if (!_focusView) {
+        _focusView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 100, 100)];
+        _focusView.backgroundColor = [UIColor clearColor];
+        _focusView.layer.borderColor = [UIColor yellowColor].CGColor;
+        _focusView.layer.borderWidth = 1.5;
+        _focusView.alpha = 0;
+    }
+    return _focusView;
 }
 
 @end

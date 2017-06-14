@@ -19,8 +19,9 @@
 @property (strong, nonatomic) AVPlayer *player;
 @property (strong, nonatomic) AVPlayerItem *playerItem;
 @property (strong, nonatomic) NSURL *movieURL;
-
 @property (assign, nonatomic) NSInteger currentVideoIndex;
+
+@property (assign, nonatomic) BOOL isStart;
 
 @end
 
@@ -53,6 +54,8 @@
     self.movieFile.playAtActualSpeed = YES;
     [self.movieFile addTarget:self.videoView];
     [self.movieFile startProcessing];
+    
+    [self.movieFile.playerItem addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionNew context:nil];
     
     self.player.rate = 1.0;
     
@@ -108,6 +111,23 @@
     
 }
 
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
+    
+    if ([keyPath isEqualToString:@"status"]) {
+        if ([[change objectForKey:@"new"] intValue] == AVPlayerStatusReadyToPlay) {
+            CMTime duration = self.movieFile.playerItem.duration;
+            if (duration.timescale == 0 || self.isStart == YES) { return; }
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration.value / duration.timescale * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                self.isStart = YES;
+                [self.movieFile endProcessing];
+            });
+        }
+    }
+    
+}
+
+#pragma mark - Actions
+
 - (void)replayBtnClick:(UIButton *)sender {
     
     self.currentVideoIndex = 1;
@@ -126,8 +146,9 @@
 
 - (void)didCompletePlayingMovie {
     
-    if (self.currentVideoIndex++ <= self.videoCount) {
-        [self.movieFile endProcessing];
+    self.isStart = NO;
+    if (self.currentVideoIndex <= self.videoCount) {
+        self.currentVideoIndex += 1;
         [self.movieFile removeAllTargets];
         self.movieFile = nil;
         self.player = nil;

@@ -40,9 +40,9 @@
     NSMutableArray *filters = [NSMutableArray array];
     [filters addObject:[FilterModel filterModelWithFilterGroup:[GPUImageFilterGroup new] filterName:@"原始"]];
     [filters addObject:[FilterModel filterModelWithFilterGroup:[FWAmaroFilter new] filterName:@"经典"]];
+    [filters addObject:[FilterModel filterModelWithFilterGroup:[FWSierraFilter new] filterName:@"哥特风"]];
     [filters addObject:[FilterModel filterModelWithFilterGroup:[FWNashvilleFilter new] filterName:@"碧波"]];
     [filters addObject:[FilterModel filterModelWithFilterGroup:[FWRiseFilter new] filterName:@"彩虹瀑"]];
-    [filters addObject:[FilterModel filterModelWithFilterGroup:[FWSierraFilter new] filterName:@"哥特风"]];
     [filters addObject:[FilterModel filterModelWithFilterGroup:[FWValenciaFilter new] filterName:@"复古"]];
     [filters addObject:[FilterModel filterModelWithFilterGroup:[FWHudsonFilter new] filterName:@"云端"]];
     [filters addObject:[FilterModel filterModelWithFilterGroup:[FWXproIIFilter new] filterName:@"淡雅"]];
