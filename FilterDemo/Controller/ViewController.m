@@ -24,8 +24,6 @@
 
 #import <AssetsLibrary/AssetsLibrary.h>
 
-#import <Photos/Photos.h>
-
 typedef NS_ENUM(NSInteger, RecordType){
     RecordTypeStoping,
     RecordTypeRecording,
@@ -37,7 +35,6 @@ typedef NS_ENUM(NSInteger, RecordType){
 @property (nonatomic, strong) GPUImageVideoCamera *videoCamera;
 @property (nonatomic, strong) GPUImageView *filterView;
 @property (strong, nonatomic) GPUImageFilterGroup *filterGroup;
-@property (strong, nonatomic) GPUImageFilterGroup *originFilterGroup;
 @property (strong, nonatomic) GPUImageBeautifyFilter *beautifulFilter;
 @property (nonatomic, strong) UIButton *beautifyButton;
 @property (strong, nonatomic) UICollectionView *collectionView;
@@ -116,11 +113,8 @@ static NSString *cellID = @"CellID";
     [self.view addSubview:self.filterView];
     
     self.beautifulFilter = [GPUImageBeautifyFilter new];
-    self.filterGroup = [GPUImageFilterGroup new];
+    self.filterGroup = self.filters.firstObject.filterGroup;
     [self addGPUImageFilter:self.beautifulFilter];
-    self.originFilterGroup = [GPUImageFilterGroup new];
-    self.originFilterGroup.initialFilters = @[self.beautifulFilter];
-    self.originFilterGroup.terminalFilter = self.beautifulFilter;
     self.blendFilter = [[GPUImageAddBlendFilter alloc] init];
     
 }
@@ -156,11 +150,10 @@ static NSString *cellID = @"CellID";
     if (self.blendFilter.targets.count) {
         [self.blendFilter removeAllTargets];
     }
-    
     [self.videoCamera addTarget:self.filterGroup];
     [self.filterGroup addTarget:self.blendFilter];
-    [self.faceView addTarget:self.blendFilter];
     [self.filterGroup addTarget:self.filterView];
+    [self.faceView addTarget:self.blendFilter];
     [self.blendFilter addTarget:self.movieWriter];
     
 }
@@ -199,12 +192,6 @@ static NSString *cellID = @"CellID";
     
     [self.view addSubview:self.viewCanvas];
     
-//    UIButton *coverBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-//    coverBtn.frame = self.filterView.frame;
-//    [coverBtn addTarget:self action:@selector(coverBtnTouchDown:) forControlEvents:UIControlEventTouchDown];
-//    [coverBtn addTarget:self action:@selector(coverBtnTouchUpInside:) forControlEvents:UIControlEventTouchUpInside];
-//    [self.view addSubview:coverBtn];
-    
     UIButton *startRecordBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.startRecordBtn = startRecordBtn;
     [startRecordBtn setTitle:@"开始录制" forState:UIControlStateNormal];
@@ -236,7 +223,6 @@ static NSString *cellID = @"CellID";
     [self.view addSubview:progressView];
     self.progressView = progressView;
     
-    self.filters = [FilterModel filters];
     [self.view addSubview:self.collectionView];
     [self.view addSubview:self.focusView];
     
@@ -256,8 +242,6 @@ static NSString *cellID = @"CellID";
     
     CGPoint loc = [[touches anyObject] locationInView:self.view];
     CGPoint cameraLoc = CGPointMake(loc.x / SCREEN_WIDTH, loc.y / SCREEN_HEIGHT);
-    NSLog(@"loc: %@", NSStringFromCGPoint(loc));
-    NSLog(@"cameraLoc: %@", NSStringFromCGPoint(cameraLoc));
     if ([self.videoCamera.inputCamera isFocusPointOfInterestSupported] && [self.videoCamera.inputCamera isLockingFocusWithCustomLensPositionSupported]) {
         NSError *error = nil;
         [self.videoCamera.inputCamera lockForConfiguration:&error];
@@ -341,22 +325,6 @@ static NSString *cellID = @"CellID";
     previewVC.audioPlayer = self.audioPlayer;
     self.isRecording = NO;
     [self presentViewController:previewVC animated:YES completion:nil];
-    
-}
-
-- (void)coverBtnTouchDown:(UIButton *)sender {
-    
-    [self.videoCamera removeAllTargets];
-    [self.filterGroup removeAllTargets];
-    [self.originFilterGroup removeAllTargets];
-    [self.videoCamera addTarget:self.originFilterGroup];
-    [self.originFilterGroup addTarget:self.filterView];
-    
-}
-
-- (void)coverBtnTouchUpInside:(UIButton *)sender {
-    
-    [self setupResponseChain];
     
 }
 
@@ -709,6 +677,13 @@ static NSString *cellID = @"CellID";
 }
 
 #pragma mark - 懒加载
+
+- (NSMutableArray<FilterModel *> *)filters {
+    if (!_filters) {
+        _filters = [FilterModel filters];
+    }
+    return _filters;
+}
 
 - (UICollectionView *)collectionView {
     if (!_collectionView) {

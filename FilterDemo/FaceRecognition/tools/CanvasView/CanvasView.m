@@ -89,7 +89,7 @@
             if (strPoint4.x >= strPoint3.x) {
                 rotation = M_PI + rotation;
             }
-            NSLog(@"rotation -> %f", rotation);
+//            NSLog(@"rotation -> %f", rotation);
             
 #pragma mark - 取眉毛的点算头部的位置
             
