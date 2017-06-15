@@ -56,8 +56,11 @@
     [self.movieFile startProcessing];
     
     [self.movieFile.playerItem addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionNew context:nil];
-    
     self.player.rate = 1.0;
+    
+    [self.audioPlayer stop];
+    [self.audioPlayer prepareToPlay];
+    [self.audioPlayer play];
     
 }
 
@@ -156,6 +159,7 @@
         [self setupVideo];
     }else {
         self.currentVideoIndex = 1;
+        [self.audioPlayer stop];
     }
     
 }

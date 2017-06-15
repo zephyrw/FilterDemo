@@ -161,7 +161,7 @@ static NSString *cellID = @"CellID";
     [self.filterGroup addTarget:self.blendFilter];
     [self.faceView addTarget:self.blendFilter];
     [self.filterGroup addTarget:self.filterView];
-    [self.blendFilter addTarget:_movieWriter];
+    [self.blendFilter addTarget:self.movieWriter];
     
 }
 
@@ -337,6 +337,8 @@ static NSString *cellID = @"CellID";
     
     PreviewController *previewVC = [PreviewController new];
     previewVC.videoCount = self.videoCount;
+    [self setupAudioPlayer];
+    previewVC.audioPlayer = self.audioPlayer;
     self.isRecording = NO;
     [self presentViewController:previewVC animated:YES completion:nil];
     

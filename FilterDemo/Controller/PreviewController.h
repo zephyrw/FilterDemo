@@ -7,9 +7,11 @@
 //
 
 #import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
 
 @interface PreviewController : UIViewController
 
 @property (assign, nonatomic) NSInteger videoCount;
+@property (strong, nonatomic) AVAudioPlayer *audioPlayer;
 
 @end
