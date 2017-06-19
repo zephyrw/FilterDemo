@@ -60,6 +60,8 @@ typedef NS_ENUM(NSInteger, RecordType){
 @property (strong, nonatomic) UIProgressView *progressView;
 @property (strong, nonatomic) CADisplayLink *link;
 @property (strong, nonatomic) UIView *focusView;
+//@property (strong, nonatomic) UIImageView *effectImageView;
+@property (assign, nonatomic) BOOL isBackCameraPresent;
 
 @end
 
@@ -103,15 +105,17 @@ static NSString *cellID = @"CellID";
 
 - (void)setupFilters {
     
-    // 滤镜初始化
     self.faceView = [[GPUImageUIElement alloc] initWithView:self.viewCanvas];
+    
     self.videoCamera = [[GPUImageVideoCamera alloc] initWithSessionPreset:AVCaptureSessionPreset640x480 cameraPosition:AVCaptureDevicePositionFront];
     self.videoCamera.delegate = self;
     self.videoCamera.outputImageOrientation = UIInterfaceOrientationPortrait;
     self.videoCamera.horizontallyMirrorFrontFacingCamera = YES;
+    
     self.filterView = [[GPUImageView alloc] initWithFrame:self.view.frame];
     [self.view addSubview:self.filterView];
     
+    // 滤镜初始化
     self.beautifulFilter = [GPUImageBeautifyFilter new];
     self.filterGroup = self.filters.firstObject.filterGroup;
     [self addGPUImageFilter:self.beautifulFilter];
@@ -197,7 +201,7 @@ static NSString *cellID = @"CellID";
     [startRecordBtn setTitle:@"开始录制" forState:UIControlStateNormal];
     [startRecordBtn setTitleColor:[UIColor orangeColor] forState:UIControlStateNormal];
     [startRecordBtn sizeToFit];
-    startRecordBtn.frame = CGRectMake(50, 30, startRecordBtn.frame.size.width, startRecordBtn.frame.size.height);
+    startRecordBtn.frame = CGRectMake(20, 30, startRecordBtn.frame.size.width, startRecordBtn.frame.size.height);
     [startRecordBtn addTarget:self action:@selector(startRecordBtnClick:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:startRecordBtn];
     
@@ -205,7 +209,7 @@ static NSString *cellID = @"CellID";
     [rotateCameraBtn setTitle:@"翻转镜头" forState:UIControlStateNormal];
     [rotateCameraBtn setTitleColor:[UIColor orangeColor] forState:UIControlStateNormal];
     [rotateCameraBtn sizeToFit];
-    rotateCameraBtn.frame = CGRectMake(150, 30, rotateCameraBtn.frame.size.width, rotateCameraBtn.frame.size.height);
+    rotateCameraBtn.frame = CGRectMake(CGRectGetMaxX(startRecordBtn.frame) + 20, 30, rotateCameraBtn.frame.size.width, rotateCameraBtn.frame.size.height);
     [rotateCameraBtn addTarget:self action:@selector(rotateCameraBtnClick:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:rotateCameraBtn];
     
@@ -213,9 +217,17 @@ static NSString *cellID = @"CellID";
     [finishRecordBtn setTitle:@"完成录制" forState:UIControlStateNormal];
     [finishRecordBtn setTitleColor:[UIColor orangeColor] forState:UIControlStateNormal];
     [finishRecordBtn sizeToFit];
-    finishRecordBtn.frame = CGRectMake(250, 30, finishRecordBtn.frame.size.width, finishRecordBtn.frame.size.height);
+    finishRecordBtn.frame = CGRectMake(CGRectGetMaxX(rotateCameraBtn.frame) + 20, 30, finishRecordBtn.frame.size.width, finishRecordBtn.frame.size.height);
     [finishRecordBtn addTarget:self action:@selector(finishRecordBtnClick) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:finishRecordBtn];
+    
+//    UIButton *effectBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+//    [effectBtn setTitle:@"特效" forState:UIControlStateNormal];
+//    [effectBtn setTitleColor:[UIColor orangeColor] forState:UIControlStateNormal];
+//    [effectBtn sizeToFit];
+//    effectBtn.frame = CGRectMake(CGRectGetMaxX(finishRecordBtn.frame) + 20, 30, effectBtn.frame.size.width, effectBtn.frame.size.height);
+//    [effectBtn addTarget:self action:@selector(effectBtnClick:) forControlEvents:UIControlEventTouchUpInside];
+//    [self.view addSubview:effectBtn];
     
     UIProgressView *progressView = [[UIProgressView alloc] initWithFrame:CGRectMake(0, 0, SCREEN_WIDTH, 2)];
     progressView.progressTintColor = [UIColor orangeColor];
@@ -225,6 +237,7 @@ static NSString *cellID = @"CellID";
     
     [self.view addSubview:self.collectionView];
     [self.view addSubview:self.focusView];
+//    [self.view addSubview:self.effectImageView];
     
     CADisplayLink *link = [CADisplayLink displayLinkWithTarget:self selector:@selector(audioProcess)];
     [link addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
@@ -269,9 +282,62 @@ static NSString *cellID = @"CellID";
 
 #pragma mark - Actions
 
+//- (void)effectBtnClick:(UIButton *)sender {
+//
+//    if (!self.effectImageView.image) { return; }
+//
+//    self.effectImageView.alpha = 0.5;
+//    [UIView animateWithDuration:0.3 animations:^{
+//        self.effectImageView.alpha = 0;
+//        self.effectImageView.transform = CGAffineTransformMakeScale(1.2, 1.2);
+//    } completion:^(BOOL finished) {
+//        self.effectImageView.transform = CGAffineTransformIdentity;
+//    }];
+//
+//}
+
+- (UIImage *)imageFromSampleBuffer:(CMSampleBufferRef)sampleBuffer {
+    
+    //获取灰度图像数据
+    CVPixelBufferRef pixelBuffer = (CVPixelBufferRef)CMSampleBufferGetImageBuffer(sampleBuffer);
+    CVPixelBufferLockBaseAddress(pixelBuffer, 0);
+    
+    uint8_t *lumaBuffer  = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0);
+    
+    size_t bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer,0);
+    size_t width  = CVPixelBufferGetWidth(pixelBuffer);
+    size_t height = CVPixelBufferGetHeight(pixelBuffer);
+    
+    CGColorSpaceRef grayColorSpace = CGColorSpaceCreateDeviceGray();
+    
+    CGContextRef context = CGBitmapContextCreate(lumaBuffer, width, height, 8, bytesPerRow, grayColorSpace,0);
+    CGImageRef cgImage = CGBitmapContextCreateImage(context);
+    
+    UIImageOrientation orientation;
+    if (self.isBackCameraPresent) {
+        orientation = UIImageOrientationRight;
+    }else {
+        orientation = UIImageOrientationLeftMirrored;
+    }
+    UIImage *image = [[UIImage alloc] initWithCGImage:cgImage scale:1 orientation:orientation];
+    
+    CVPixelBufferUnlockBaseAddress(pixelBuffer, 0);
+    
+    CGImageRelease(cgImage);
+    CGContextRelease(context);
+    CGColorSpaceRelease(grayColorSpace);
+    
+    return image;
+    
+}
+
 - (void)rotateCameraBtnClick:(UIButton *)sender {
     
     [self.videoCamera rotateCamera];
+    self.isBackCameraPresent = !self.isBackCameraPresent;
+    if (!self.isBackCameraPresent) {
+        self.focusView.alpha = 0;
+    }
     
 }
 
@@ -544,7 +610,6 @@ static NSString *cellID = @"CellID";
     if(!isFrontCamera){
         rectFace = rSwap(rectFace);
         rectFace = rRotate90(rectFace, faceImg.height, faceImg.width);
-        
     }
     
     rectFace = rScale(rectFace, widthScaleBy, heightScaleBy);
@@ -567,7 +632,7 @@ static NSString *cellID = @"CellID";
     
     CGColorSpaceRef grayColorSpace = CGColorSpaceCreateDeviceGray();
     
-    CGContextRef context=CGBitmapContextCreate(lumaBuffer, width, height, 8, bytesPerRow, grayColorSpace,0);
+    CGContextRef context = CGBitmapContextCreate(lumaBuffer, width, height, 8, bytesPerRow, grayColorSpace,0);
     CGImageRef cgImage = CGBitmapContextCreateImage(context);
     
     CVPixelBufferUnlockBaseAddress(pixelBuffer, 0);
@@ -714,5 +779,15 @@ static NSString *cellID = @"CellID";
     }
     return _focusView;
 }
+
+//- (UIImageView *)effectImageView {
+//    if (!_effectImageView) {
+//        _effectImageView = [[UIImageView alloc] initWithFrame:self.view.bounds];
+//        _effectImageView.alpha = 0;
+//        _effectImageView.userInteractionEnabled = YES;
+//        _effectImageView.contentMode = UIViewContentModeCenter;
+//    }
+//    return _effectImageView;
+//}
 
 @end

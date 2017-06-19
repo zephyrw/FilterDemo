@@ -41,6 +41,15 @@
     
 }
 
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    
+    [self.movieFile endProcessing];
+    [self.audioPlayer stop];
+    [self.audioPlayer prepareToPlay];
+    
+}
+
 - (void)setupVideo {
     
     self.movieURL = [NSURL fileURLWithPath:pathToMovie(self.currentVideoIndex)];
@@ -56,6 +65,7 @@
     [self.movieFile startProcessing];
     
     [self.movieFile.playerItem addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionNew context:nil];
+    [self.movieFile addObserver:self forKeyPath:@"process" options:NSKeyValueObservingOptionNew context:nil];
     self.player.rate = 1.0;
     
     [self.audioPlayer stop];
@@ -125,6 +135,10 @@
                 [self.movieFile endProcessing];
             });
         }
+    }
+    
+    if ([keyPath isEqualToString:@"process"]) {
+        NSLog(@"process -> %f", [[change objectForKey:@"new"] floatValue]);
     }
     
 }

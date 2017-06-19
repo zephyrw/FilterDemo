@@ -9,7 +9,7 @@
 @interface CanvasView ()
 
 //头部贴图
-@property (nonatomic,strong) UIImageView *  headMapView;
+@property (nonatomic,strong) UIImageView * headMapView;
 //眼睛贴图
 @property (nonatomic,strong) UIImageView * eyesMapView;
 //鼻子贴图
@@ -23,6 +23,10 @@
 
 @implementation CanvasView{
     CGContextRef context ;
+}
+
++ (Class)layerClass {
+    return [CAEAGLLayer class];
 }
 
 -(UIImageView *) headMapView{
