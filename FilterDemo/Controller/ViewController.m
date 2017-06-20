@@ -8,6 +8,7 @@
 
 #import "ViewController.h"
 #import "GPUImageBeautifyFilter.h"
+#import "GPUImageCoverBlendFilter.h"
 #import "FilterCell.h"
 #import "FilterModel.h"
 
@@ -41,7 +42,7 @@ typedef NS_ENUM(NSInteger, RecordType){
 @property (strong, nonatomic) NSMutableArray<FilterModel *> *filters;
 @property (nonatomic , strong) GPUImageMovieWriter *movieWriter;
 @property (nonatomic , strong) GPUImageUIElement *faceView;
-@property (nonatomic , strong) GPUImageAddBlendFilter *blendFilter;
+@property (nonatomic , strong) GPUImageCoverBlendFilter *blendFilter;
 /*
  人脸识别
  */
@@ -85,6 +86,8 @@ static NSString *cellID = @"CellID";
     [super viewWillAppear:animated];
     
     [self.videoCamera startCameraCapture];
+    [self.audioPlayer prepareToPlay];
+    self.videoCount = 0;
     
 }
 
@@ -119,7 +122,7 @@ static NSString *cellID = @"CellID";
     self.beautifulFilter = [GPUImageBeautifyFilter new];
     self.filterGroup = self.filters.firstObject.filterGroup;
     [self addGPUImageFilter:self.beautifulFilter];
-    self.blendFilter = [[GPUImageAddBlendFilter alloc] init];
+    self.blendFilter = [[GPUImageCoverBlendFilter alloc] init];
     
 }
 
@@ -414,7 +417,7 @@ static NSString *cellID = @"CellID";
     
     FilterCell *cell = (FilterCell *)[collectionView cellForItemAtIndexPath:indexPath];
     self.filterGroup = cell.filterModel.filterGroup;
-    [self addGPUImageFilter:self.beautifulFilter];
+//    [self addGPUImageFilter:self.beautifulFilter];
     [self setupResponseChain];
     
 }
@@ -564,7 +567,7 @@ static NSString *cellID = @"CellID";
         self.viewCanvas.hidden = NO ;
     }
     self.viewCanvas.arrPersons = arrPersons ;
-//    NSLog(@"update arr");
+    NSLog(@"update arr");
     [self.viewCanvas setNeedsDisplay];
 }
 

@@ -9,7 +9,8 @@
 #import "AppDelegate.h"
 #import <iflyMSC/IFlyFaceSDK.h>
 
-#define USER_APPID @"584e1399"
+//#define USER_APPID @"584e1399"
+#define USER_APPID @"5928dd6f"
 
 @interface AppDelegate ()
 

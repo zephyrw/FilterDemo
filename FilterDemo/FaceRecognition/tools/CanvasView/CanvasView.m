@@ -25,10 +25,6 @@
     CGContextRef context ;
 }
 
-+ (Class)layerClass {
-    return [CAEAGLLayer class];
-}
-
 -(UIImageView *) headMapView{
     if(_headMapView == nil){
         
