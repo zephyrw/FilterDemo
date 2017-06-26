@@ -8,7 +8,6 @@
 
 #import "ViewController.h"
 #import "GPUImageBeautifyFilter.h"
-#import "GPUImageCoverBlendFilter.h"
 #import "FilterCell.h"
 #import "FilterModel.h"
 
@@ -22,7 +21,7 @@
 #import "FWNashvilleFilter.h"
 #import "FWLordKelvinFilter.h"
 #import "PreviewController.h"
-
+#import "ZYView.h"
 #import <AssetsLibrary/AssetsLibrary.h>
 
 typedef NS_ENUM(NSInteger, RecordType){
@@ -42,7 +41,8 @@ typedef NS_ENUM(NSInteger, RecordType){
 @property (strong, nonatomic) NSMutableArray<FilterModel *> *filters;
 @property (nonatomic , strong) GPUImageMovieWriter *movieWriter;
 @property (nonatomic , strong) GPUImageUIElement *faceView;
-@property (nonatomic , strong) GPUImageCoverBlendFilter *blendFilter;
+@property (strong, nonatomic) ZYView *myView;
+@property (nonatomic , strong) GPUImageNormalBlendFilter *blendFilter;
 /*
  人脸识别
  */
@@ -108,7 +108,9 @@ static NSString *cellID = @"CellID";
 
 - (void)setupFilters {
     
-    self.faceView = [[GPUImageUIElement alloc] initWithView:self.viewCanvas];
+//    self.faceView = [[GPUImageUIElement alloc] initWithView:self.viewCanvas];
+    self.myView = [[ZYView alloc] initWithFrame:self.view.bounds];
+//    self.faceView = [[GPUImageUIElement alloc] initWithView:self.myView];
     
     self.videoCamera = [[GPUImageVideoCamera alloc] initWithSessionPreset:AVCaptureSessionPreset640x480 cameraPosition:AVCaptureDevicePositionFront];
     self.videoCamera.delegate = self;
@@ -122,7 +124,7 @@ static NSString *cellID = @"CellID";
     self.beautifulFilter = [GPUImageBeautifyFilter new];
     self.filterGroup = self.filters.firstObject.filterGroup;
     [self addGPUImageFilter:self.beautifulFilter];
-    self.blendFilter = [[GPUImageCoverBlendFilter alloc] init];
+    self.blendFilter = [[GPUImageNormalBlendFilter alloc] init];
     
 }
 
@@ -160,7 +162,7 @@ static NSString *cellID = @"CellID";
     [self.videoCamera addTarget:self.filterGroup];
     [self.filterGroup addTarget:self.blendFilter];
     [self.filterGroup addTarget:self.filterView];
-    [self.faceView addTarget:self.blendFilter];
+    [self.myView.rotateFilter addTarget:self.blendFilter];
     [self.blendFilter addTarget:self.movieWriter];
     
 }
@@ -197,7 +199,8 @@ static NSString *cellID = @"CellID";
 
 - (void)setupUI {
     
-    [self.view addSubview:self.viewCanvas];
+//    [self.view addSubview:self.viewCanvas];
+    [self.view addSubview:self.myView];
     
     UIButton *startRecordBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.startRecordBtn = startRecordBtn;
@@ -417,7 +420,7 @@ static NSString *cellID = @"CellID";
     
     FilterCell *cell = (FilterCell *)[collectionView cellForItemAtIndexPath:indexPath];
     self.filterGroup = cell.filterModel.filterGroup;
-//    [self addGPUImageFilter:self.beautifulFilter];
+    [self addGPUImageFilter:self.beautifulFilter];
     [self setupResponseChain];
     
 }
@@ -429,7 +432,7 @@ static NSString *cellID = @"CellID";
     IFlyFaceImage *faceImg = [self faceImageFromSampleBuffer:sampleBuffer];
     //识别结果，json数据
     NSString *strResult = [self.faceDetector trackFrame:faceImg.data withWidth:faceImg.width height:faceImg.height direction:(int)faceImg.direction];
-    
+//    NSLog(@"%@", strResult);
     [self praseTrackResult:strResult OrignImage:faceImg];
     //此处清理图片数据，以防止因为不必要的图片数据的反复传递造成的内存卷积占用
     faceImg.data = nil;

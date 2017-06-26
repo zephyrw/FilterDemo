@@ -10,6 +10,7 @@
 
 //头部贴图
 @property (nonatomic,strong) UIImageView * headMapView;
+//@property (strong, nonatomic) UIWebView *headMapView;
 //眼睛贴图
 @property (nonatomic,strong) UIImageView * eyesMapView;
 //鼻子贴图
@@ -18,6 +19,8 @@
 @property (nonatomic,strong) UIImageView * mouthMapView;
 //面部贴图
 @property (nonatomic,strong) UIImageView * facialTextureMapView;
+
+@property (assign, nonatomic) CGPoint preMiddlePoint;
 
 @end
 
@@ -35,18 +38,32 @@
     return _headMapView;
 }
 
+//- (UIWebView *)headMapView {
+//    if (!_headMapView) {
+//        _headMapView = [[UIWebView alloc] init];
+//        _headMapView.scalesPageToFit = YES;
+//        _headMapView.contentMode = UIViewContentModeScaleAspectFit;
+//        _headMapView.opaque = NO;
+//        _headMapView.backgroundColor = [UIColor clearColor];
+//        _headMapView.scrollView.scrollEnabled = NO;
+//        [self addSubview:_headMapView];
+//    }
+//    return _headMapView;
+//}
 
 -(void) setHeadMap:(UIImage *)headMap{
     if (_headMap != headMap) {
         _headMap = headMap;
         self.headMapView.image = _headMap;
-        
+//        _headMap = [UIImage imageNamed:@"panda.gif"];
+//        NSString *path = [[NSBundle mainBundle] pathForResource:@"panda" ofType:@"gif"];
+//        NSData *data = [NSData dataWithContentsOfFile:path];
+//        [self.headMapView loadData:data MIMEType:@"image/gif" textEncodingName:nil baseURL:nil];
     }
 }
 
 - (void)drawRect:(CGRect)rect {
     [self drawPointWithPoints:self.arrPersons] ;
-
 }
 
 -(void)drawPointWithPoints:(NSArray *)arrPersons{
@@ -55,11 +72,12 @@
         CGContextClearRect(context, self.bounds) ;
     }
     context = UIGraphicsGetCurrentContext();
-
+    
     double rotation = 0.0;
+    CGFloat rotateY = 0;
     //头部中点
     CGPoint midpoint = CGPointZero;
-    CGFloat spacing = 60;
+//    CGFloat spacing = 60;
     
     for (NSDictionary *dicPerson in self.arrPersons) {
         
@@ -156,18 +174,35 @@
             CGPoint  otherPoint19 = CGPointFromString(((NSString *)strPoints[19]));
             CGContextAddEllipseInRect(context, CGRectMake(otherPoint19.x - 1 , otherPoint19.y - 1 , 2 , 2));
             
+            // rotate with Y anxle
+            CGFloat rightDelta = fabs(strPoint1.x - otherPoint12.x);
+            CGFloat leftDelta = fabs(otherPoint12.x - strPoint2.x) == 0.0 ? 0.000000001 : fabs(otherPoint12.x - strPoint2.x);
+//            NSLog(@"rightDelta: %f  leftDelta: %f", rightDelta, leftDelta);
+            CGFloat scale = rightDelta / leftDelta;
+            if (scale >= 1) {
+                rotateY = atan(scale - 1);
+            } else {
+                rotateY = -atan(1 / scale - 1);
+            }
+//            NSLog(@"rotateY: %f", rotateY);
+            
             midpoint = CGPointMake(midpointX, midpointY);
             CGContextAddEllipseInRect(context, CGRectMake(midpoint.x - 1 , midpoint.y - 1 , 2 , 2));
         }
-        
-        BOOL isOriRect=NO;
+        if (sqrt(powf(midpoint.x - self.preMiddlePoint.x, 2) + powf(midpoint.y - self.preMiddlePoint.y, 2)) <= 2) {
+            self.preMiddlePoint = midpoint;
+            return;
+        }
+        self.preMiddlePoint = midpoint;
+        BOOL isOriRect = NO;
         if ([dicPerson objectForKey:RECT_ORI]) {
             isOriRect=[[dicPerson objectForKey:RECT_ORI] boolValue];
         }
         
         if ([dicPerson objectForKey:RECT_KEY]) {
             
-            CGRect rect=CGRectFromString([dicPerson objectForKey:RECT_KEY]);
+            CGRect rect = CGRectFromString([dicPerson objectForKey:RECT_KEY]);
+            CGContextAddRect(context, rect);
             if (self.headMap){
                 CGFloat scale =  (rect.size.width / self.headMap.size.width) + 0.3;
                 CGFloat headMapViewW = scale * self.headMap.size.width;
@@ -176,10 +211,12 @@
                 CGRect frame  =  CGRectMake(midpoint.x - (headMapViewW * 0.5), midpoint.y - headmapViewH + 20, headMapViewW, headmapViewH);
                 
                 self.headMapView.frame = frame;
-                self.headMapView.bounds = CGRectMake(0, 0, headMapViewW, headmapViewH);
+//                self.headMapView.bounds = CGRectMake(0, 0, headMapViewW, headmapViewH);
+//                self.headMapView.scrollView.bounds = self.headMapView.bounds;
                 
                 self.headMapView.layer.anchorPoint = CGPointMake(0.5, 1);
-                self.headMapView.transform = CGAffineTransformMakeRotation(-rotation);
+                self.headMapView.layer.transform = CATransform3DMakeRotation(-rotation, 0, 0, 1);
+                self.headMapView.layer.transform = CATransform3DRotate(self.headMapView.layer.transform, rotateY, 0, 1, 0);
                 
             }
         }
