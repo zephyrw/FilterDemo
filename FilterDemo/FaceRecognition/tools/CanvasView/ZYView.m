@@ -11,8 +11,11 @@
 @interface ZYView ()<SCNSceneRendererDelegate>
 
 @property (strong, nonatomic) SCNScene *myScene;
+@property (strong, nonatomic) SCNMaterial *imageMaterial;
+@property (strong, nonatomic) SCNNode *geometryNode;
 @property (strong, nonatomic) SCNNode *textNode;
 @property (strong, nonatomic) SCNNode *cameraNode;
+@property (strong, nonatomic) SCNNode *cameraBoxNode;
 @property (strong, nonatomic) SCNView *scnView;
 @property (strong, nonatomic) SCNRenderer *secondaryRenderer;
 @property (strong, nonatomic) GPUImageTextureInput *textureInput;
@@ -61,16 +64,40 @@
     
     self.myScene = [SCNScene scene];
     
-    self.textNode = [SCNNode node];
-    self.textNode.geometry = [SCNText textWithString:@"Zephyr" extrusionDepth:0.5];
-    self.textNode.position = SCNVector3Make(0, 0, -100);
-    [self.myScene.rootNode addChildNode:self.textNode];
+//    self.textNode = [SCNNode node];
+//    self.textNode.geometry = [SCNText textWithString:@"Zephyr" extrusionDepth:0.5];
+//    self.textNode.geometry = [SCNPlane planeWithWidth:50 height:50];
+//    self.textNode.position = SCNVector3Make(0, 0, -100);
+//    [self.myScene.rootNode addChildNode:self.textNode];
+//
+//    self.cameraNode = [SCNNode node];
+//    self.cameraNode.camera = [SCNCamera camera];
+//    self.cameraNode.camera.automaticallyAdjustsZRange = YES;
+//    [self.myScene.rootNode addChildNode:self.cameraNode];
+//
+//    self.scnView.scene = self.myScene;
+    
+    self.imageMaterial = [SCNMaterial material];
+    self.imageMaterial.doubleSided = true;
+    self.imageMaterial.diffuse.contentsTransform = SCNMatrix4MakeScale(-1, 1, 1);
+    self.imageMaterial.diffuse.wrapS = SCNWrapModeRepeat;
+    self.imageMaterial.diffuse.contents = [UIImage imageNamed:@"007.jpg"];
+    
+    SCNSphere *sphere = [SCNSphere sphereWithRadius:20];
+    sphere.materials = @[self.imageMaterial];
+    self.geometryNode = [SCNNode nodeWithGeometry:sphere];
+    self.geometryNode.position = SCNVector3Make(0.0, 0.0, -100.0);
+    [self.myScene.rootNode addChildNode:self.geometryNode];
     
     self.cameraNode = [SCNNode node];
     self.cameraNode.camera = [SCNCamera camera];
-    self.cameraNode.camera.automaticallyAdjustsZRange = YES;
-    [self.myScene.rootNode addChildNode:self.cameraNode];
+    self.cameraNode.camera.yFov = 72.0;
+    self.cameraNode.position = SCNVector3Make(0, 0, 0);
+    self.cameraNode.eulerAngles = SCNVector3Make(0.0, 0.0, 0.0);
     
+    self.cameraBoxNode = [SCNNode node];
+    [self.cameraBoxNode addChildNode:self.cameraNode];
+    [self.myScene.rootNode addChildNode:self.cameraBoxNode];
     
     self.scnView.scene = self.myScene;
     
@@ -111,8 +138,10 @@
             [EAGLContext setCurrentContext:self.eaglContext];
         }
         
-        GLsizei width = (GLsizei)self.videoSize.width;
-        GLsizei height = (GLsizei)self.videoSize.height;
+        CGFloat scale = [UIScreen mainScreen].scale;
+        
+        GLsizei width = (GLsizei)(self.videoSize.width * scale);
+        GLsizei height = (GLsizei)(self.videoSize.height * scale);
         
         glBindFramebuffer(GL_FRAMEBUFFER, self.outputFramebuffer);
         glBindTexture(GL_TEXTURE_2D, self.outputTexture);
