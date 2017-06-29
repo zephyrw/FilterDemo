@@ -86,9 +86,14 @@ static NSString *cellID = @"CellID";
     [super viewWillAppear:animated];
     
     [self.videoCamera startCameraCapture];
-    [self.audioPlayer prepareToPlay];
+    [self setupAudioPlayer];
+    self.progressView.progress = 0;
     self.videoCount = 0;
-    
+    NSError *error = nil;
+    [[NSFileManager defaultManager] removeItemAtPath:pathToMovie((long)1) error:&error];
+    if (error) {
+        NSLog(@"删除文件失败：%@", error);
+    }
 }
 
 - (void)setupFaceDetector {
@@ -133,7 +138,6 @@ static NSString *cellID = @"CellID";
     if (self.movieWriter) {
         self.movieWriter = nil;
     }
-    
     // 录像文件
     unlink([pathToMovie(self.videoCount) UTF8String]);
     self.movieURL = [NSURL fileURLWithPath:pathToMovie(self.videoCount)];
@@ -566,18 +570,27 @@ static NSString *cellID = @"CellID";
 
 //检测到人脸
 - (void) showFaceLandmarksAndFaceRectWithPersonsArray:(NSMutableArray *)arrPersons{
-    if (self.viewCanvas.hidden) {
-        self.viewCanvas.hidden = NO ;
-    }
-    self.viewCanvas.arrPersons = arrPersons ;
-    NSLog(@"update arr");
+//    if (self.viewCanvas.hidden) {
+//        self.viewCanvas.hidden = NO ;
+//    }
+//    self.viewCanvas.arrPersons = arrPersons ;
+//    NSLog(@"update arr");
     [self.viewCanvas setNeedsDisplay];
+    if (self.myView.isHidden) {
+        self.myView.hidden = NO;
+    }
+    self.myView.arrPersons = arrPersons;
+    [self.myView setNeedsDisplay];
+    NSLog(@"update arr");
 }
 
 //没有检测到人脸或发生错误
 - (void) hideFace {
-    if (!self.viewCanvas.hidden) {
-        self.viewCanvas.hidden = YES ;
+//    if (!self.viewCanvas.hidden) {
+//        self.viewCanvas.hidden = YES ;
+//    }
+    if (!self.myView.isHidden) {
+        self.myView.hidden = YES;
     }
 }
 
