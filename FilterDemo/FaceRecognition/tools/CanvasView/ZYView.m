@@ -31,7 +31,8 @@
 @property (assign, nonatomic) CGSize videoSize;
 @property (strong, nonatomic) GPUImageTextureInput *textureInput;
 @property (assign, nonatomic) CGPoint preMiddlePoint;
-@property (strong, nonatomic) SCNPlane *plane;
+//@property (strong, nonatomic) SCNPlane *plane;
+@property (strong, nonatomic) SCNTorus *torus;
 @property (assign, nonatomic) CGPoint scnMiddlePoint;
 
 @end
@@ -66,15 +67,17 @@
     self.myScene = [SCNScene scene];
     
     self.imageMaterial = [SCNMaterial material];
-//    self.imageMaterial.doubleSided = true;
+    self.imageMaterial.doubleSided = true;
+    self.imageMaterial.locksAmbientWithDiffuse = YES;
     self.imageMaterial.diffuse.contentsTransform = SCNMatrix4MakeScale(-1, 1, 1);
     self.imageMaterial.diffuse.wrapS = SCNWrapModeRepeat;
-    self.imageMaterial.diffuse.contents = [UIImage imageNamed:@"007.jpg"];
+//    self.imageMaterial.diffuse.contents = [UIImage imageNamed:@"007.jpg"];
     
-    SCNPlane *plane = [SCNPlane planeWithWidth:200 height:180];
-    plane.materials = @[self.imageMaterial];
-    self.plane = plane;
-    self.geometryNode = [SCNNode nodeWithGeometry:plane];
+    self.torus = [SCNTorus torusWithRingRadius:0 pipeRadius:10];
+//    self.torus = [SCNTorus torusWithRingRadius:100 pipeRadius:10];
+    self.torus.materials = @[self.imageMaterial];
+    self.geometryNode = [SCNNode nodeWithGeometry:self.torus];
+//    self.geometryNode = [SCNScene sceneNamed:@"art.scnassets/harf_circle.dae"].rootNode.clone;
     self.geometryNode.position = SCNVector3Make(0.0, 180, 0.0);
     
     SCNNode *bigGeoNode = [SCNNode node];
@@ -89,16 +92,16 @@
     
 //    SCNNode *fishNode = [SCNScene sceneNamed:@"art.scnassets/xiaochouyu.dae"].rootNode.clone;
 //    fishNode.position = SCNVector3Make(0, 0, -1000);
-////    fishNode.scale = SCNVector3Make(0.4, 0.4, 0.4);
+//    fishNode.scale = SCNVector3Make(0.4, 0.4, 0.4);
 //    fishNode.rotation = SCNVector4Make(0, -M_PI_2, 0, 1);
 //    [self.myScene.rootNode addChildNode:fishNode];
     
     self.cameraNode = [SCNNode node];
     self.cameraNode.camera = [SCNCamera camera];
     self.cameraNode.camera.automaticallyAdjustsZRange = YES;
-//    self.cameraNode.camera.yFov = 72.0;
-//    self.cameraNode.position = SCNVector3Make(0, 10, 20);
-//    self.cameraNode.eulerAngles = SCNVector3Make(0.0, 0.0, 0.0);
+    self.cameraNode.camera.yFov = 72.0;
+    self.cameraNode.position = SCNVector3Make(0, 0, 0);
+    self.cameraNode.eulerAngles = SCNVector3Make(0.0, 0.0, 0.0);
     
     self.cameraBoxNode = [SCNNode node];
     [self.cameraBoxNode addChildNode:self.cameraNode];
@@ -135,8 +138,6 @@
         glGenTextures(1, &_outputTexture);
         glBindTexture(GL_TEXTURE_2D, self.outputTexture);
         
-        glEnable(GL_DEPTH_TEST);
-        
     });
     
     self.textureInput = [[GPUImageTextureInput alloc] initWithTexture:self.outputTexture size:self.videoSize];
@@ -154,31 +155,33 @@
         if (self.eaglContext != context) {
             [EAGLContext setCurrentContext:self.eaglContext];
         }
-        
-        GLsizei width = (GLsizei)(self.videoSize.width);
-        GLsizei height = (GLsizei)(self.videoSize.height);
-        
-        glBindFramebuffer(GL_FRAMEBUFFER, self.outputFramebuffer);
-        glBindTexture(GL_TEXTURE_2D, self.outputTexture);
-        
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nil);
-        
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.outputTexture, 0);
-        
-        glViewport(0, 0, width, height);
-        
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        [self.secondaryRenderer renderAtTime:time];
-        
-        dispatch_sync(self.videoBuildingQueue, ^{
-            [self.textureInput processTextureWithFrameTime:CMTimeMake(time, 100000)];
-        });
+        @synchronized(self.eaglContext) {
+            GLsizei width = (GLsizei)(self.videoSize.width);
+            GLsizei height = (GLsizei)(self.videoSize.height);
+            
+            glBindFramebuffer(GL_FRAMEBUFFER, self.outputFramebuffer);
+            glBindTexture(GL_TEXTURE_2D, self.outputTexture);
+            
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nil);
+            
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.outputTexture, 0); 
+            
+            glViewport(0, 0, width, height);
+            
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glEnable(GL_DEPTH_TEST);
+            
+            [self.secondaryRenderer renderAtTime:time];
+            
+            dispatch_sync(self.videoBuildingQueue, ^{
+                [self.textureInput processTextureWithFrameTime:CMTimeMake(time, 100000)];
+            });
+        }
         
     });
     
@@ -198,7 +201,6 @@
     double rotateZ = 0.0;
     double rotateY = 0.0;
     double rotateX = 0.0;
-    CGPoint chinPoint = CGPointZero;
     //头部中点
     CGPoint midpoint = CGPointZero;
     //    CGFloat spacing = 60;
@@ -215,10 +217,10 @@
             //            NSLog(@"strPoints -> %@", strPoints);
             //右边鼻孔
             CGPoint  rightNostrilPoint = CGPointFromString(((NSString *)strPoints[2]));
-            CGContextAddEllipseInRect(context, CGRectMake(rightNostrilPoint.x - 1 , rightNostrilPoint.y - 1 , 2 , 2));
+//            CGContextAddEllipseInRect(context, CGRectMake(rightNostrilPoint.x - 1 , rightNostrilPoint.y - 1 , 2 , 2));
             //左边鼻孔
             CGPoint  leftNostrilPoint = CGPointFromString(((NSString *)strPoints[15]));
-            CGContextAddEllipseInRect(context, CGRectMake(leftNostrilPoint.x - 1 , leftNostrilPoint.y - 1 , 2 , 2));
+//            CGContextAddEllipseInRect(context, CGRectMake(leftNostrilPoint.x - 1 , leftNostrilPoint.y - 1 , 2 , 2));
             
             //右边嘴角
 //            CGPoint  strPoint3 = CGPointFromString(((NSString *)strPoints[5]));
@@ -275,7 +277,7 @@
 //            CGContextAddEllipseInRect(context, CGRectMake(otherPoint3.x - 1 , otherPoint3.y - 1 , 2 , 2));
             // 嘴上方
             CGPoint  mouseUpPoint = CGPointFromString(((NSString *)strPoints[4]));
-            CGContextAddEllipseInRect(context, CGRectMake(mouseUpPoint.x - 1 , mouseUpPoint.y - 1 , 2 , 2));
+//            CGContextAddEllipseInRect(context, CGRectMake(mouseUpPoint.x - 1 , mouseUpPoint.y - 1 , 2 , 2));
             // 嘴下方
 //            CGPoint  mouseDownPoint = CGPointFromString(((NSString *)strPoints[6]));
 //            CGContextAddEllipseInRect(context, CGRectMake(otherPoint6.x - 1 , otherPoint6.y - 1 , 2 , 2));
@@ -285,13 +287,13 @@
 //            CGContextAddEllipseInRect(context, CGRectMake(otherPoint8.x - 1 , otherPoint8.y - 1 , 2 , 2));
 //          左眼中心点
             CGPoint  leftEyeCenterPoint = CGPointFromString(((NSString *)strPoints[9]));
-            CGContextAddEllipseInRect(context, CGRectMake(leftEyeCenterPoint.x - 1 , leftEyeCenterPoint.y - 1 , 2 , 2));
+//            CGContextAddEllipseInRect(context, CGRectMake(leftEyeCenterPoint.x - 1 , leftEyeCenterPoint.y - 1 , 2 , 2));
 //          右眼中心点
             CGPoint  rightEyeCenterPoint = CGPointFromString(((NSString *)strPoints[10]));
-            CGContextAddEllipseInRect(context, CGRectMake(rightEyeCenterPoint.x - 1 , rightEyeCenterPoint.y - 1 , 2 , 2));
+//            CGContextAddEllipseInRect(context, CGRectMake(rightEyeCenterPoint.x - 1 , rightEyeCenterPoint.y - 1 , 2 , 2));
             // 鼻子
             CGPoint  nosePoint = CGPointFromString(((NSString *)strPoints[12]));
-            CGContextAddEllipseInRect(context, CGRectMake(nosePoint.x - 1 , nosePoint.y - 1 , 2 , 2));
+//            CGContextAddEllipseInRect(context, CGRectMake(nosePoint.x - 1 , nosePoint.y - 1 , 2 , 2));
             // 左眼右边点
 //            CGPoint  otherPoint14 = CGPointFromString(((NSString *)strPoints[14]));
 //            CGContextAddEllipseInRect(context, CGRectMake(otherPoint14.x - 1 , otherPoint14.y - 1 , 2 , 2));
@@ -300,7 +302,7 @@
 //            CGContextAddEllipseInRect(context, CGRectMake(otherPoint19.x - 1 , otherPoint19.y - 1 , 2 , 2));
             
             midpoint = CGPointMake(midpointX, midpointY);
-            CGContextAddEllipseInRect(context, CGRectMake(midpoint.x - 1 , midpoint.y - 1 , 2 , 2));
+//            CGContextAddEllipseInRect(context, CGRectMake(midpoint.x - 1 , midpoint.y - 1 , 2 , 2));
             
             // rotate with Y anxle
             CGPoint raPoint = [self pedalPoint:leftEyeCenterPoint p2:rightEyeCenterPoint p3:midpoint];
@@ -321,7 +323,6 @@
             double upDelta = sqrt(pow(nosePoint.x - raUpPedalPoint.x, 2) + pow(nosePoint.y - raUpPedalPoint.y, 2));
             double downDelta = sqrt(pow(mouseUpPoint.x - raDownPedalPoint.x, 2) + pow(mouseUpPoint.y - raDownPedalPoint.y, 2)) - 3.5;
             downDelta = downDelta == 0 ? 0.0000001 : downDelta;
-            NSLog(@"upDelta: %f ------- downDelta: %f", upDelta, downDelta);
             double upDownScale = upDelta / downDelta;
             if (scale >= 1) {
                 rotateX = atan(upDownScale - 1);
@@ -332,7 +333,6 @@
             
         }
         if (sqrt(powf(midpoint.x - self.preMiddlePoint.x, 2) + powf(midpoint.y - self.preMiddlePoint.y, 2)) <= 2) {
-            self.preMiddlePoint = midpoint;
             return;
         }
         self.preMiddlePoint = midpoint;
@@ -347,10 +347,10 @@
 //            CGContextAddRect(context, rect);
             
             if (self.geometryNode) {
-                CGFloat scale = (rect.size.width / self.plane.width);
+                CGFloat scale = (rect.size.width / 180);
                 self.scnMiddlePoint = [self convertUIPointToSCNPoint:midpoint];
                 self.pGeoNode.position = SCNVector3Make(self.scnMiddlePoint.x, self.scnMiddlePoint.y, -800);
-                self.geometryNode.position = SCNVector3Make(0, self.plane.height, 0);
+                self.geometryNode.position = SCNVector3Make(0, self.torus.pipeRadius * 2 + 180, 0);
                 self.geometryNode.scale = SCNVector3Make(scale, scale, scale);
                 self.geometryNode.rotation = SCNVector4Make(0, 1, 0, rotateY);
                 self.bigGeoNode.rotation = SCNVector4Make(0, 0, 1, -rotateZ);
@@ -383,18 +383,11 @@
 //    float d = (A * x0.x + B * x0.y + C) / sqrt(A * A + B * B);
     
     CGPoint ptCross = CGPointMake(x, y);
-//    NSLog(@"d======%f",d);
-//    NSLog(@"A=======%f, B=======%f, C=======%f",A,B,C);
-//    NSLog(@"垂足======x=%f, y=%f", x, y);
     return ptCross;
 }
 
 
 #pragma mark - SCNSceneRendererDelegate
-
-- (void)renderer:(id<SCNSceneRenderer>)renderer willRenderScene:(SCNScene *)scene atTime:(NSTimeInterval)time {
-    
-}
 
 - (void)renderer:(id<SCNSceneRenderer>)renderer didRenderScene:(SCNScene *)scene atTime:(NSTimeInterval)time {
     

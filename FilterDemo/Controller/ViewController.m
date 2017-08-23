@@ -21,10 +21,10 @@
 #import "FWNashvilleFilter.h"
 #import "FWLordKelvinFilter.h"
 #import "PreviewController.h"
-#import "ZYView.h"
+//#import "ZYView.h"
 #import <AssetsLibrary/AssetsLibrary.h>
 
-typedef NS_ENUM(NSInteger, RecordType){
+typedef NS_ENUM(NSInteger, RecordType) {
     RecordTypeStoping,
     RecordTypeRecording,
     RecordTypeSaving
@@ -41,8 +41,8 @@ typedef NS_ENUM(NSInteger, RecordType){
 @property (strong, nonatomic) NSMutableArray<FilterModel *> *filters;
 @property (nonatomic , strong) GPUImageMovieWriter *movieWriter;
 @property (nonatomic , strong) GPUImageUIElement *faceView;
-@property (strong, nonatomic) ZYView *myView;
-@property (nonatomic , strong) GPUImageNormalBlendFilter *blendFilter;
+//@property (strong, nonatomic) ZYView *myView;
+//@property (nonatomic , strong) GPUImageNormalBlendFilter *blendFilter;
 /*
  人脸识别
  */
@@ -114,7 +114,7 @@ static NSString *cellID = @"CellID";
 - (void)setupFilters {
     
 //    self.faceView = [[GPUImageUIElement alloc] initWithView:self.viewCanvas];
-    self.myView = [[ZYView alloc] initWithFrame:self.view.bounds];
+//    self.myView = [[ZYView alloc] initWithFrame:self.view.bounds];
 //    self.faceView = [[GPUImageUIElement alloc] initWithView:self.myView];
     
     self.videoCamera = [[GPUImageVideoCamera alloc] initWithSessionPreset:AVCaptureSessionPreset640x480 cameraPosition:AVCaptureDevicePositionFront];
@@ -129,7 +129,7 @@ static NSString *cellID = @"CellID";
     self.beautifulFilter = [GPUImageBeautifyFilter new];
     self.filterGroup = self.filters.firstObject.filterGroup;
     [self addGPUImageFilter:self.beautifulFilter];
-    self.blendFilter = [[GPUImageNormalBlendFilter alloc] init];
+//    self.blendFilter = [[GPUImageNormalBlendFilter alloc] init];
     
 }
 
@@ -160,14 +160,15 @@ static NSString *cellID = @"CellID";
     if (self.faceView.targets.count) {
         [self.faceView removeAllTargets];
     }
-    if (self.blendFilter.targets.count) {
-        [self.blendFilter removeAllTargets];
-    }
+//    if (self.blendFilter.targets.count) {
+//        [self.blendFilter removeAllTargets];
+//    }
     [self.videoCamera addTarget:self.filterGroup];
-    [self.filterGroup addTarget:self.blendFilter];
+//    [self.filterGroup addTarget:self.blendFilter];
     [self.filterGroup addTarget:self.filterView];
-    [self.myView.rotateFilter addTarget:self.blendFilter];
-    [self.blendFilter addTarget:self.movieWriter];
+//    [self.myView.rotateFilter addTarget:self.blendFilter];
+//    [self.blendFilter addTarget:self.movieWriter];
+    [self.filterGroup addTarget:self.movieWriter];
     
 }
 
@@ -188,6 +189,8 @@ static NSString *cellID = @"CellID";
 
 - (void)setupAudioPlayer {
     
+    [self.audioPlayer removeObserver:self forKeyPath:@"currentTime"];
+    
     NSString *path = [[NSBundle mainBundle] pathForResource:@"ywcm" ofType:@"mp3"];
     NSError *error = nil;
     self.audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:[NSURL URLWithString:path] error:&error];
@@ -204,7 +207,7 @@ static NSString *cellID = @"CellID";
 - (void)setupUI {
     
 //    [self.view addSubview:self.viewCanvas];
-    [self.view addSubview:self.myView];
+//    [self.view addSubview:self.myView];
     
     UIButton *startRecordBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.startRecordBtn = startRecordBtn;
@@ -378,7 +381,8 @@ static NSString *cellID = @"CellID";
         [sender setTitle:@"继续录制" forState:UIControlStateNormal];
         NSLog(@"stop record button click");
         [self.audioPlayer pause];
-        [self.blendFilter removeTarget:_movieWriter];
+//        [self.blendFilter removeTarget:_movieWriter];
+        [self.filterGroup removeTarget:_movieWriter];
         [self.movieWriter finishRecording];
         self.filterGroup.frameProcessingCompletionBlock = nil;
 //        [self.videoCamera stopCameraCapture];
@@ -388,7 +392,8 @@ static NSString *cellID = @"CellID";
 
 - (void)finishRecordBtnClick {
     
-    [self.blendFilter removeTarget:_movieWriter];
+//    [self.blendFilter removeTarget:_movieWriter];
+    [self.filterGroup removeTarget:self.movieWriter];
     [self.audioPlayer stop];
     [self.audioPlayer prepareToPlay];
     [_movieWriter finishRecording];
@@ -576,22 +581,22 @@ static NSString *cellID = @"CellID";
 //    self.viewCanvas.arrPersons = arrPersons ;
 //    NSLog(@"update arr");
     [self.viewCanvas setNeedsDisplay];
-    if (self.myView.isHidden) {
-        self.myView.hidden = NO;
-    }
-    self.myView.arrPersons = arrPersons;
-    [self.myView setNeedsDisplay];
+//    if (self.myView.isHidden) {
+//        self.myView.hidden = NO;
+//    }
+//    self.myView.arrPersons = arrPersons;
+//    [self.myView setNeedsDisplay];
     NSLog(@"update arr");
 }
 
 //没有检测到人脸或发生错误
 - (void) hideFace {
 //    if (!self.viewCanvas.hidden) {
-//        self.viewCanvas.hidden = YES ;
+//        self.viewCanvas.hidden = YES;
 //    }
-    if (!self.myView.isHidden) {
-        self.myView.hidden = YES;
-    }
+//    if (!self.myView.isHidden) {
+//        self.myView.hidden = YES;
+//    }
 }
 
 
